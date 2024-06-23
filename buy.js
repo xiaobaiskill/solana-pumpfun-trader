@@ -22,6 +22,9 @@ async function testBuy() {
         const res = await connection.simulateTransaction(tx)
         console.log(res)
         console.log(res.value.err)
+
+        // const signture = await web3.sendAndConfirmTransaction(connection, tx, [pay])
+        // console.log(signture)
     } catch (error) {
         console.error('error', error);
     }

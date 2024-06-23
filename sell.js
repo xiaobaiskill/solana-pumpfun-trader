@@ -10,7 +10,7 @@ async function testSell() {
         const connection = new web3.Connection(web3.clusterApiUrl("mainnet-beta"));
         const pumpFunTrader = new PumpFunTrader(connection);
 
-        const tx = await pumpFunTrader.getSellTransaction(pay.publicKey, "2WMY1ishGato1dTjP2bCBg6eTANXcY2ETugjx1dADsPt", 18777000000, 0.02)
+        const tx = await pumpFunTrader.getSellTransaction(pay.publicKey, "2WMY1ishGato1dTjP2bCBg6eTANXcY2ETugjx1dADsPt", 18777000000, 0.02, 0.0003)
 
         tx.sign(pay)
 

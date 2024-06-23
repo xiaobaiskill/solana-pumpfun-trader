@@ -32,6 +32,7 @@ var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: tru
 var src_exports = {};
 __export(src_exports, {
   ASSOC_TOKEN_ACC_PROG: () => ASSOC_TOKEN_ACC_PROG,
+  BLOX_ROUTE: () => BLOX_ROUTE,
   COMPUTEBUDGET: () => COMPUTEBUDGET,
   FEE_RECIPIENT: () => FEE_RECIPIENT,
   GLOBAL: () => GLOBAL,
@@ -55,6 +56,12 @@ function bufferFromUInt64(value) {
   return buffer;
 }
 __name(bufferFromUInt64, "bufferFromUInt64");
+function bufferFromUInt32(value) {
+  let buffer = Buffer.alloc(4);
+  buffer.writeUIntLE(value, 0, 4);
+  return buffer;
+}
+__name(bufferFromUInt32, "bufferFromUInt32");
 
 // src/utils/get-token-data.ts
 var import_axios = __toESM(require("axios"));
@@ -100,6 +107,7 @@ var COMPUTEBUDGET = new import_web32.PublicKey("ComputeBudget1111111111111111111
 var PUMP_FUN_PROGRAM = new import_web32.PublicKey("6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P");
 var PUMP_FUN_ACCOUNT = new import_web32.PublicKey("Ce6TQqeHC9p8KetsN6JsjHK7UTZk7nasjjnr7XxXp9F1");
 var SYSTEM_PROGRAM_ID = import_web32.SystemProgram.programId;
+var BLOX_ROUTE = new import_web32.PublicKey("HWEoBxYs7ssKuudEjzjmpfJVX7Dvi7wescFsVx2L5yoY");
 var PumpFunTrader = class {
   static {
     __name(this, "PumpFunTrader");
@@ -114,7 +122,7 @@ var PumpFunTrader = class {
     this.logger = logger;
     return this;
   }
-  async getBuyTransaction(publicKey, tokenAddress, amount, slippage = 0.1, priorityFee = 0) {
+  async getBuyTransaction(publicKey, tokenAddress, amount, slippage = 0.1, priorityFee = 3e-3) {
     const coinData = await getTokenData(tokenAddress, this.logger);
     if (!coinData) {
       this.logger.error("Failed to retrieve coin data...");
@@ -130,6 +138,7 @@ var PumpFunTrader = class {
     const tokenAccountAddress = await (0, import_spl_token.getAssociatedTokenAddress)(token, owner, false);
     const tokenAccountInfo = await this.connection.getAccountInfo(tokenAccountAddress);
     if (priorityFee > 0) {
+      this.setpriorityFee(txBuilder, owner, priorityFee);
     }
     let tokenAccount;
     if (!tokenAccountInfo) {
@@ -221,7 +230,7 @@ var PumpFunTrader = class {
     txBuilder.add(instruction);
     return txBuilder;
   }
-  async getSellTransaction(publicKey, tokenAddress, tokenBalance, slippage = 0.25, priorityFee = 0) {
+  async getSellTransaction(publicKey, tokenAddress, tokenBalance, slippage = 0.25, priorityFee = 3e-3) {
     const coinData = await getTokenData(tokenAddress);
     if (!coinData) {
       this.logger.error("Failed to retrieve coin data...");
@@ -235,6 +244,7 @@ var PumpFunTrader = class {
       recentBlockhash: blockhash
     });
     if (priorityFee > 0) {
+      this.setpriorityFee(txBuilder, owner, priorityFee);
     }
     const tokenAccountAddress = await (0, import_spl_token.getAssociatedTokenAddress)(mint, owner, false);
     const tokenAccountInfo = await this.connection.getAccountInfo(tokenAccountAddress);
@@ -321,10 +331,33 @@ var PumpFunTrader = class {
     txBuilder.add(instruction);
     return txBuilder;
   }
+  setpriorityFee(txBuilder, owner, priorityFee) {
+    const data = Buffer.concat([
+      bufferFromUInt32(2),
+      bufferFromUInt64(priorityFee * import_web32.LAMPORTS_PER_SOL)
+    ]);
+    txBuilder.add(new import_web32.TransactionInstruction({
+      keys: [
+        {
+          pubkey: owner,
+          isSigner: true,
+          isWritable: true
+        },
+        {
+          pubkey: BLOX_ROUTE,
+          isSigner: false,
+          isWritable: true
+        }
+      ],
+      programId: SYSTEM_PROGRAM_ID,
+      data
+    }));
+  }
 };
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
   ASSOC_TOKEN_ACC_PROG,
+  BLOX_ROUTE,
   COMPUTEBUDGET,
   FEE_RECIPIENT,
   GLOBAL,

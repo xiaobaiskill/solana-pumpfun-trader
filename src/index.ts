@@ -2,7 +2,7 @@ import { Connection, LAMPORTS_PER_SOL, PublicKey, SystemProgram, Transaction, Tr
 import { createAssociatedTokenAccountInstruction, getAssociatedTokenAddress } from '@solana/spl-token';
 import { createTransaction } from './utils/create-transaction';
 import { sendTransaction } from './utils/send-transaction';
-import { bufferFromUInt64, getKeyPairFromPrivateKey } from './utils/helper';
+import { bufferFromUInt64, bufferFromUInt32, getKeyPairFromPrivateKey } from './utils/helper';
 import getCoinData from './utils/get-token-data';
 import 'dotenv/config';
 import getTokenData from './utils/get-token-data';
@@ -15,7 +15,7 @@ export const COMPUTEBUDGET = new PublicKey('ComputeBudget11111111111111111111111
 export const PUMP_FUN_PROGRAM = new PublicKey('6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P');
 export const PUMP_FUN_ACCOUNT = new PublicKey('Ce6TQqeHC9p8KetsN6JsjHK7UTZk7nasjjnr7XxXp9F1');
 export const SYSTEM_PROGRAM_ID = SystemProgram.programId;
-
+export const BLOX_ROUTE = new PublicKey("HWEoBxYs7ssKuudEjzjmpfJVX7Dvi7wescFsVx2L5yoY")
 export default class PumpFunTrader {
     private connection: Connection;
     private logger: any;
@@ -30,7 +30,7 @@ export default class PumpFunTrader {
         return this;
     }
 
-    async getBuyTransaction(publicKey: string, tokenAddress: string, amount: number, slippage: number = 0.10, priorityFee: number = 0) {
+    async getBuyTransaction(publicKey: string, tokenAddress: string, amount: number, slippage: number = 0.10, priorityFee: number = 0.003) {
         const coinData = await getTokenData(tokenAddress, this.logger);
         if (!coinData) {
             this.logger.error('Failed to retrieve coin data...');
@@ -51,7 +51,7 @@ export default class PumpFunTrader {
         const tokenAccountInfo = await this.connection.getAccountInfo(tokenAccountAddress);
 
         if (priorityFee > 0) {
-
+            this.setpriorityFee(txBuilder, owner, priorityFee);
         }
 
         let tokenAccount: PublicKey;
@@ -99,7 +99,7 @@ export default class PumpFunTrader {
         txBuilder.add(instruction)
         return txBuilder
     }
-    async getSellTransaction(publicKey: string, tokenAddress: string, tokenBalance: number, slippage: number = 0.25, priorityFee: number = 0) {
+    async getSellTransaction(publicKey: string, tokenAddress: string, tokenBalance: number, slippage: number = 0.25, priorityFee: number = 0.003) {
         const coinData = await getCoinData(tokenAddress);
         if (!coinData) {
             this.logger.error('Failed to retrieve coin data...');
@@ -115,7 +115,7 @@ export default class PumpFunTrader {
         });
 
         if (priorityFee > 0) {
-
+            this.setpriorityFee(txBuilder, owner, priorityFee);
         }
 
         const tokenAccountAddress = await getAssociatedTokenAddress(mint, owner, false);
@@ -158,5 +158,18 @@ export default class PumpFunTrader {
         txBuilder.add(instruction);
 
         return txBuilder;
+    }
+
+    private setpriorityFee(txBuilder: Transaction, owner: PublicKey, priorityFee: number) {
+        const data = Buffer.concat([bufferFromUInt32(2), bufferFromUInt64(priorityFee * LAMPORTS_PER_SOL)]);
+
+        txBuilder.add(new TransactionInstruction({
+            keys: [
+                { pubkey: owner, isSigner: true, isWritable: true },
+                { pubkey: BLOX_ROUTE, isSigner: false, isWritable: true },
+            ],
+            programId: SYSTEM_PROGRAM_ID,
+            data: data
+        }))
     }
 }

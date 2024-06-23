@@ -14,6 +14,12 @@ function bufferFromUInt64(value) {
   return buffer;
 }
 __name(bufferFromUInt64, "bufferFromUInt64");
+function bufferFromUInt32(value) {
+  let buffer = Buffer.alloc(4);
+  buffer.writeUIntLE(value, 0, 4);
+  return buffer;
+}
+__name(bufferFromUInt32, "bufferFromUInt32");
 
 // src/utils/get-token-data.ts
 import axios from "axios";
@@ -59,6 +65,7 @@ var COMPUTEBUDGET = new PublicKey("ComputeBudget111111111111111111111111111111")
 var PUMP_FUN_PROGRAM = new PublicKey("6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P");
 var PUMP_FUN_ACCOUNT = new PublicKey("Ce6TQqeHC9p8KetsN6JsjHK7UTZk7nasjjnr7XxXp9F1");
 var SYSTEM_PROGRAM_ID = SystemProgram.programId;
+var BLOX_ROUTE = new PublicKey("HWEoBxYs7ssKuudEjzjmpfJVX7Dvi7wescFsVx2L5yoY");
 var PumpFunTrader = class {
   static {
     __name(this, "PumpFunTrader");
@@ -73,7 +80,7 @@ var PumpFunTrader = class {
     this.logger = logger;
     return this;
   }
-  async getBuyTransaction(publicKey, tokenAddress, amount, slippage = 0.1, priorityFee = 0) {
+  async getBuyTransaction(publicKey, tokenAddress, amount, slippage = 0.1, priorityFee = 3e-3) {
     const coinData = await getTokenData(tokenAddress, this.logger);
     if (!coinData) {
       this.logger.error("Failed to retrieve coin data...");
@@ -89,6 +96,7 @@ var PumpFunTrader = class {
     const tokenAccountAddress = await getAssociatedTokenAddress(token, owner, false);
     const tokenAccountInfo = await this.connection.getAccountInfo(tokenAccountAddress);
     if (priorityFee > 0) {
+      this.setpriorityFee(txBuilder, owner, priorityFee);
     }
     let tokenAccount;
     if (!tokenAccountInfo) {
@@ -180,7 +188,7 @@ var PumpFunTrader = class {
     txBuilder.add(instruction);
     return txBuilder;
   }
-  async getSellTransaction(publicKey, tokenAddress, tokenBalance, slippage = 0.25, priorityFee = 0) {
+  async getSellTransaction(publicKey, tokenAddress, tokenBalance, slippage = 0.25, priorityFee = 3e-3) {
     const coinData = await getTokenData(tokenAddress);
     if (!coinData) {
       this.logger.error("Failed to retrieve coin data...");
@@ -194,6 +202,7 @@ var PumpFunTrader = class {
       recentBlockhash: blockhash
     });
     if (priorityFee > 0) {
+      this.setpriorityFee(txBuilder, owner, priorityFee);
     }
     const tokenAccountAddress = await getAssociatedTokenAddress(mint, owner, false);
     const tokenAccountInfo = await this.connection.getAccountInfo(tokenAccountAddress);
@@ -280,9 +289,32 @@ var PumpFunTrader = class {
     txBuilder.add(instruction);
     return txBuilder;
   }
+  setpriorityFee(txBuilder, owner, priorityFee) {
+    const data = Buffer.concat([
+      bufferFromUInt32(2),
+      bufferFromUInt64(priorityFee * LAMPORTS_PER_SOL)
+    ]);
+    txBuilder.add(new TransactionInstruction({
+      keys: [
+        {
+          pubkey: owner,
+          isSigner: true,
+          isWritable: true
+        },
+        {
+          pubkey: BLOX_ROUTE,
+          isSigner: false,
+          isWritable: true
+        }
+      ],
+      programId: SYSTEM_PROGRAM_ID,
+      data
+    }));
+  }
 };
 export {
   ASSOC_TOKEN_ACC_PROG,
+  BLOX_ROUTE,
   COMPUTEBUDGET,
   FEE_RECIPIENT,
   GLOBAL,

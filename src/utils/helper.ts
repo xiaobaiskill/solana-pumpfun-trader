@@ -10,3 +10,15 @@ export function bufferFromUInt64(value: number | string) {
     buffer.writeBigUInt64LE(BigInt(value));
     return buffer;
 }
+
+export function bufferFromUInt32(value: number) {
+    let buffer = Buffer.alloc(4);
+    buffer.writeUIntLE(value, 0, 4);
+    return buffer;
+}
+
+export function bufferFromUInt(value: number, size: number) {
+    let buffer = Buffer.alloc(size);
+    buffer.writeUIntLE(value, 0, size);
+    return buffer;
+}
