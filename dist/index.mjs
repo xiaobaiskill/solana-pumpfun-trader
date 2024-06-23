@@ -2,53 +2,12 @@ var __defProp = Object.defineProperty;
 var __name = (target, value) => __defProp(target, "name", { value, configurable: true });
 
 // src/index.ts
-import { Connection, LAMPORTS_PER_SOL, PublicKey, SystemProgram, Transaction as Transaction2, TransactionInstruction } from "@solana/web3.js";
+import { LAMPORTS_PER_SOL, PublicKey, SystemProgram, Transaction, TransactionInstruction } from "@solana/web3.js";
 import { createAssociatedTokenAccountInstruction, getAssociatedTokenAddress } from "@solana/spl-token";
-
-// src/utils/create-transaction.ts
-import { Transaction, ComputeBudgetProgram } from "@solana/web3.js";
-async function createTransaction(connection, instructions, wallet, priorityFee = 0) {
-  const modifyComputeUnits = ComputeBudgetProgram.setComputeUnitLimit({
-    units: 14e5
-  });
-  const transaction = new Transaction().add(modifyComputeUnits);
-  if (priorityFee > 0) {
-    const microLamports = priorityFee * 1e9;
-    const addPriorityFee = ComputeBudgetProgram.setComputeUnitPrice({
-      microLamports
-    });
-    transaction.add(addPriorityFee);
-  }
-  transaction.add(...instructions);
-  transaction.feePayer = wallet;
-  transaction.recentBlockhash = (await connection.getRecentBlockhash()).blockhash;
-  return transaction;
-}
-__name(createTransaction, "createTransaction");
-
-// src/utils/send-transaction.ts
-import { sendAndConfirmTransaction } from "@solana/web3.js";
-async function sendTransaction(connection, transaction, signers, logger = console) {
-  try {
-    const signature = await sendAndConfirmTransaction(connection, transaction, signers, {
-      skipPreflight: true,
-      preflightCommitment: "confirmed"
-    });
-    return signature;
-  } catch (error) {
-    logger.error("Error sending transaction:", error);
-    return null;
-  }
-}
-__name(sendTransaction, "sendTransaction");
 
 // src/utils/helper.ts
 import { Keypair } from "@solana/web3.js";
 import bs58 from "bs58";
-async function getKeyPairFromPrivateKey(key) {
-  return Keypair.fromSecretKey(new Uint8Array(bs58.decode(key)));
-}
-__name(getKeyPairFromPrivateKey, "getKeyPairFromPrivateKey");
 function bufferFromUInt64(value) {
   let buffer = Buffer.alloc(8);
   buffer.writeBigUInt64LE(BigInt(value));
@@ -90,13 +49,13 @@ async function getTokenData(mintStr, logger = console) {
 __name(getTokenData, "getTokenData");
 
 // src/index.ts
-import { config } from "dotenv";
-config();
+import "dotenv/config";
 var GLOBAL = new PublicKey("4wTV1YmiEkRvAtNtsSGPtUrqRYQMe5SKy2uB4Jjaxnjf");
 var FEE_RECIPIENT = new PublicKey("CebN5WGQ4jvEPvsVU4EoHEpgzq1VV7AbicfhtW4xC9iM");
 var TOKEN_PROGRAM_ID = new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
 var ASSOC_TOKEN_ACC_PROG = new PublicKey("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL");
 var RENT = new PublicKey("SysvarRent111111111111111111111111111111111");
+var COMPUTEBUDGET = new PublicKey("ComputeBudget111111111111111111111111111111");
 var PUMP_FUN_PROGRAM = new PublicKey("6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P");
 var PUMP_FUN_ACCOUNT = new PublicKey("Ce6TQqeHC9p8KetsN6JsjHK7UTZk7nasjjnr7XxXp9F1");
 var SYSTEM_PROGRAM_ID = SystemProgram.programId;
@@ -106,81 +65,34 @@ var PumpFunTrader = class {
   }
   connection;
   logger;
-  constructor(solanaRpcUrl = "https://api.mainnet-beta.solana.com", logger = console) {
-    if (process.env.RPC_URL) {
-      this.connection = new Connection(process.env.RPC_URL, "confirmed");
-    } else {
-      this.connection = new Connection(solanaRpcUrl, "confirmed");
-    }
+  constructor(connection, logger = console) {
+    this.connection = connection;
     this.logger = logger;
-  }
-  setSolanaRpcUrl(solanaRpcUrl) {
-    this.connection = new Connection(solanaRpcUrl, "confirmed");
-    return this;
   }
   setLogger(logger) {
     this.logger = logger;
     return this;
   }
-  async buy(privateKey, tokenAddress, amount, priorityFee = 0, slippage = 0.25, isSimulation = true) {
-    try {
-      const txBuilder = new Transaction2();
-      const instruction = await this.getBuyInstruction(privateKey, tokenAddress, amount, slippage, txBuilder);
-      if (!instruction?.instruction) {
-        this.logger.error("Failed to retrieve buy instruction...");
-        return;
-      }
-      txBuilder.add(instruction.instruction);
-      const signature = await this.createAndSendTransaction(txBuilder, privateKey, priorityFee, isSimulation);
-      this.logger.log("Buy transaction confirmed:", signature);
-      return signature;
-    } catch (error) {
-      this.logger.log(error);
-    }
-  }
-  async sell(privateKey, tokenAddress, tokenBalance, priorityFee = 0, slippage = 0.25, isSimulation = true) {
-    try {
-      const instruction = await this.getSellInstruction(privateKey, tokenAddress, tokenBalance, slippage);
-      const txBuilder = new Transaction2();
-      if (!instruction) {
-        this.logger.error("Failed to retrieve sell instruction...");
-        return;
-      }
-      txBuilder.add(instruction);
-      const signature = await this.createAndSendTransaction(txBuilder, privateKey, priorityFee, isSimulation);
-      this.logger.log("Sell transaction confirmed:", signature);
-    } catch (error) {
-      this.logger.log(error);
-    }
-  }
-  async createAndSendTransaction(txBuilder, privateKey, priorityFee = 0, isSimulation = true) {
-    const walletPrivateKey = await getKeyPairFromPrivateKey(privateKey);
-    const transaction = await createTransaction(this.connection, txBuilder.instructions, walletPrivateKey.publicKey, priorityFee);
-    if (isSimulation == false) {
-      const signature = await sendTransaction(this.connection, transaction, [
-        walletPrivateKey
-      ], this.logger);
-      this.logger.log("Transaction confirmed:", signature);
-      return signature;
-    } else if (isSimulation == true) {
-      const simulatedResult = await this.connection.simulateTransaction(transaction);
-      this.logger.log(simulatedResult);
-    }
-  }
-  async getBuyInstruction(privateKey, tokenAddress, amount, slippage = 0.25, txBuilder) {
+  async getBuyTransaction(publicKey, tokenAddress, amount, slippage = 0.1, priorityFee = 0) {
     const coinData = await getTokenData(tokenAddress, this.logger);
     if (!coinData) {
       this.logger.error("Failed to retrieve coin data...");
       return;
     }
-    const walletPrivateKey = await getKeyPairFromPrivateKey(privateKey);
-    const owner = walletPrivateKey.publicKey;
+    const owner = new PublicKey(publicKey);
+    const { blockhash } = await this.connection.getLatestBlockhash();
+    const txBuilder = new Transaction({
+      feePayer: owner,
+      recentBlockhash: blockhash
+    });
     const token = new PublicKey(tokenAddress);
     const tokenAccountAddress = await getAssociatedTokenAddress(token, owner, false);
     const tokenAccountInfo = await this.connection.getAccountInfo(tokenAccountAddress);
+    if (priorityFee > 0) {
+    }
     let tokenAccount;
     if (!tokenAccountInfo) {
-      txBuilder.add(createAssociatedTokenAccountInstruction(walletPrivateKey.publicKey, tokenAccountAddress, walletPrivateKey.publicKey, token));
+      txBuilder.add(createAssociatedTokenAccountInstruction(owner, tokenAccountAddress, owner, token));
       tokenAccount = tokenAccountAddress;
     } else {
       tokenAccount = tokenAccountAddress;
@@ -265,26 +177,29 @@ var PumpFunTrader = class {
       programId: PUMP_FUN_PROGRAM,
       data
     });
-    return {
-      instruction,
-      tokenAmount: tokenOut
-    };
+    txBuilder.add(instruction);
+    return txBuilder;
   }
-  async getSellInstruction(privateKey, tokenAddress, tokenBalance, slippage = 0.25) {
+  async getSellTransaction(publicKey, tokenAddress, tokenBalance, slippage = 0.25, priorityFee = 0) {
     const coinData = await getTokenData(tokenAddress);
     if (!coinData) {
       this.logger.error("Failed to retrieve coin data...");
       return;
     }
-    const payer = await getKeyPairFromPrivateKey(privateKey);
-    const owner = payer.publicKey;
+    const { blockhash } = await this.connection.getLatestBlockhash();
+    const owner = new PublicKey(publicKey);
     const mint = new PublicKey(tokenAddress);
-    const txBuilder = new Transaction2();
+    const txBuilder = new Transaction({
+      feePayer: owner,
+      recentBlockhash: blockhash
+    });
+    if (priorityFee > 0) {
+    }
     const tokenAccountAddress = await getAssociatedTokenAddress(mint, owner, false);
     const tokenAccountInfo = await this.connection.getAccountInfo(tokenAccountAddress);
     let tokenAccount;
     if (!tokenAccountInfo) {
-      txBuilder.add(createAssociatedTokenAccountInstruction(payer.publicKey, tokenAccountAddress, payer.publicKey, mint));
+      txBuilder.add(createAssociatedTokenAccountInstruction(owner, tokenAccountAddress, owner, mint));
       tokenAccount = tokenAccountAddress;
     } else {
       tokenAccount = tokenAccountAddress;
@@ -362,11 +277,13 @@ var PumpFunTrader = class {
       programId: PUMP_FUN_PROGRAM,
       data
     });
-    return instruction;
+    txBuilder.add(instruction);
+    return txBuilder;
   }
 };
 export {
   ASSOC_TOKEN_ACC_PROG,
+  COMPUTEBUDGET,
   FEE_RECIPIENT,
   GLOBAL,
   PUMP_FUN_ACCOUNT,

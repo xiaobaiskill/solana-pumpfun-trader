@@ -4,14 +4,14 @@ import { createTransaction } from './utils/create-transaction';
 import { sendTransaction } from './utils/send-transaction';
 import { bufferFromUInt64, getKeyPairFromPrivateKey } from './utils/helper';
 import getCoinData from './utils/get-token-data';
-import { config } from 'dotenv';
+import 'dotenv/config';
 import getTokenData from './utils/get-token-data';
-config();
 export const GLOBAL = new PublicKey('4wTV1YmiEkRvAtNtsSGPtUrqRYQMe5SKy2uB4Jjaxnjf');
 export const FEE_RECIPIENT = new PublicKey('CebN5WGQ4jvEPvsVU4EoHEpgzq1VV7AbicfhtW4xC9iM');
 export const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
 export const ASSOC_TOKEN_ACC_PROG = new PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL');
 export const RENT = new PublicKey('SysvarRent111111111111111111111111111111111');
+export const COMPUTEBUDGET = new PublicKey('ComputeBudget111111111111111111111111111111');
 export const PUMP_FUN_PROGRAM = new PublicKey('6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P');
 export const PUMP_FUN_ACCOUNT = new PublicKey('Ce6TQqeHC9p8KetsN6JsjHK7UTZk7nasjjnr7XxXp9F1');
 export const SYSTEM_PROGRAM_ID = SystemProgram.programId;
@@ -20,107 +20,44 @@ export default class PumpFunTrader {
     private connection: Connection;
     private logger: any;
 
-    constructor(solanaRpcUrl: string = 'https://api.mainnet-beta.solana.com', logger: any = console) {
-        if (process.env.RPC_URL) {
-            this.connection = new Connection(process.env.RPC_URL, 'confirmed');
-        } else {
-            this.connection = new Connection(solanaRpcUrl, 'confirmed');
-        }
+    constructor(connection: Connection, logger: any = console) {
+        this.connection = connection;
         this.logger = logger;
-    }
-
-    setSolanaRpcUrl(solanaRpcUrl: string) {
-        this.connection = new Connection(solanaRpcUrl, 'confirmed');
-
-        return this;
     }
 
     setLogger(logger: any) {
         this.logger = logger;
-
         return this;
     }
-    async buy(
-        privateKey: string,
-        tokenAddress: string,
-        amount: number,
-        priorityFee: number = 0,
-        slippage: number = 0.25,
-        isSimulation: boolean = true
-    ) {
-        try {
-            const txBuilder = new Transaction();
-            const instruction = await this.getBuyInstruction(privateKey, tokenAddress, amount, slippage, txBuilder);
-            if (!instruction?.instruction) {
-                this.logger.error('Failed to retrieve buy instruction...');
-                return;
-            }
-            txBuilder.add(instruction.instruction);
-            const signature = await this.createAndSendTransaction(txBuilder, privateKey, priorityFee, isSimulation);
-            this.logger.log('Buy transaction confirmed:', signature);
 
-            return signature;
-        } catch (error) {
-            this.logger.log(error);
-        }
-    }
-
-    async sell(
-        privateKey: string,
-        tokenAddress: string,
-        tokenBalance: number,
-        priorityFee: number = 0,
-        slippage: number = 0.25,
-        isSimulation: boolean = true
-    ) {
-        try {
-            const instruction = await this.getSellInstruction(privateKey, tokenAddress, tokenBalance, slippage);
-            const txBuilder = new Transaction();
-            if (!instruction) {
-                this.logger.error('Failed to retrieve sell instruction...');
-                return;
-            }
-
-            txBuilder.add(instruction);
-
-            const signature = await this.createAndSendTransaction(txBuilder, privateKey, priorityFee, isSimulation);
-            this.logger.log('Sell transaction confirmed:', signature);
-        } catch (error) {
-            this.logger.log(error);
-        }
-    }
-    async createAndSendTransaction(txBuilder: Transaction, privateKey: string, priorityFee: number = 0, isSimulation: boolean = true) {
-        const walletPrivateKey = await getKeyPairFromPrivateKey(privateKey);
-
-        const transaction = await createTransaction(this.connection, txBuilder.instructions, walletPrivateKey.publicKey, priorityFee);
-        if (isSimulation == false) {
-            const signature = await sendTransaction(this.connection, transaction, [walletPrivateKey], this.logger);
-            this.logger.log('Transaction confirmed:', signature);
-            return signature;
-        } else if (isSimulation == true) {
-            const simulatedResult = await this.connection.simulateTransaction(transaction);
-            this.logger.log(simulatedResult);
-        }
-    }
-    async getBuyInstruction(privateKey: string, tokenAddress: string, amount: number, slippage: number = 0.25, txBuilder: Transaction) {
+    async getBuyTransaction(publicKey: string, tokenAddress: string, amount: number, slippage: number = 0.10, priorityFee: number = 0) {
         const coinData = await getTokenData(tokenAddress, this.logger);
         if (!coinData) {
             this.logger.error('Failed to retrieve coin data...');
             return;
         }
 
-        const walletPrivateKey = await getKeyPairFromPrivateKey(privateKey);
-        const owner = walletPrivateKey.publicKey;
+        const owner = new PublicKey(publicKey);
+        // 获取最近的 blockhash
+        const { blockhash } = await this.connection.getLatestBlockhash();
+        const txBuilder = new Transaction({
+            feePayer: owner,
+            recentBlockhash: blockhash,
+        });
         const token = new PublicKey(tokenAddress);
 
         const tokenAccountAddress = await getAssociatedTokenAddress(token, owner, false);
 
         const tokenAccountInfo = await this.connection.getAccountInfo(tokenAccountAddress);
 
+        if (priorityFee > 0) {
+
+        }
+
         let tokenAccount: PublicKey;
         if (!tokenAccountInfo) {
             txBuilder.add(
-                createAssociatedTokenAccountInstruction(walletPrivateKey.publicKey, tokenAccountAddress, walletPrivateKey.publicKey, token)
+                createAssociatedTokenAccountInstruction(owner, tokenAccountAddress, owner, token)
             );
             tokenAccount = tokenAccountAddress;
         } else {
@@ -159,19 +96,27 @@ export default class PumpFunTrader {
             data: data
         });
 
-        return { instruction: instruction, tokenAmount: tokenOut };
+        txBuilder.add(instruction)
+        return txBuilder
     }
-    async getSellInstruction(privateKey: string, tokenAddress: string, tokenBalance: number, slippage: number = 0.25) {
+    async getSellTransaction(publicKey: string, tokenAddress: string, tokenBalance: number, slippage: number = 0.25, priorityFee: number = 0) {
         const coinData = await getCoinData(tokenAddress);
         if (!coinData) {
             this.logger.error('Failed to retrieve coin data...');
             return;
         }
 
-        const payer = await getKeyPairFromPrivateKey(privateKey);
-        const owner = payer.publicKey;
+        const { blockhash } = await this.connection.getLatestBlockhash();
+        const owner = new PublicKey(publicKey);
         const mint = new PublicKey(tokenAddress);
-        const txBuilder = new Transaction();
+        const txBuilder = new Transaction({
+            feePayer: owner,
+            recentBlockhash: blockhash,
+        });
+
+        if (priorityFee > 0) {
+
+        }
 
         const tokenAccountAddress = await getAssociatedTokenAddress(mint, owner, false);
 
@@ -179,7 +124,7 @@ export default class PumpFunTrader {
 
         let tokenAccount: PublicKey;
         if (!tokenAccountInfo) {
-            txBuilder.add(createAssociatedTokenAccountInstruction(payer.publicKey, tokenAccountAddress, payer.publicKey, mint));
+            txBuilder.add(createAssociatedTokenAccountInstruction(owner, tokenAccountAddress, owner, mint));
             tokenAccount = tokenAccountAddress;
         } else {
             tokenAccount = tokenAccountAddress;
@@ -210,6 +155,8 @@ export default class PumpFunTrader {
             data: data
         });
 
-        return instruction;
+        txBuilder.add(instruction);
+
+        return txBuilder;
     }
 }

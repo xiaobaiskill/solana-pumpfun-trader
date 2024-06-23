@@ -32,6 +32,7 @@ var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: tru
 var src_exports = {};
 __export(src_exports, {
   ASSOC_TOKEN_ACC_PROG: () => ASSOC_TOKEN_ACC_PROG,
+  COMPUTEBUDGET: () => COMPUTEBUDGET,
   FEE_RECIPIENT: () => FEE_RECIPIENT,
   GLOBAL: () => GLOBAL,
   PUMP_FUN_ACCOUNT: () => PUMP_FUN_ACCOUNT,
@@ -42,53 +43,12 @@ __export(src_exports, {
   default: () => PumpFunTrader
 });
 module.exports = __toCommonJS(src_exports);
-var import_web34 = require("@solana/web3.js");
+var import_web32 = require("@solana/web3.js");
 var import_spl_token = require("@solana/spl-token");
 
-// src/utils/create-transaction.ts
-var import_web3 = require("@solana/web3.js");
-async function createTransaction(connection, instructions, wallet, priorityFee = 0) {
-  const modifyComputeUnits = import_web3.ComputeBudgetProgram.setComputeUnitLimit({
-    units: 14e5
-  });
-  const transaction = new import_web3.Transaction().add(modifyComputeUnits);
-  if (priorityFee > 0) {
-    const microLamports = priorityFee * 1e9;
-    const addPriorityFee = import_web3.ComputeBudgetProgram.setComputeUnitPrice({
-      microLamports
-    });
-    transaction.add(addPriorityFee);
-  }
-  transaction.add(...instructions);
-  transaction.feePayer = wallet;
-  transaction.recentBlockhash = (await connection.getRecentBlockhash()).blockhash;
-  return transaction;
-}
-__name(createTransaction, "createTransaction");
-
-// src/utils/send-transaction.ts
-var import_web32 = require("@solana/web3.js");
-async function sendTransaction(connection, transaction, signers, logger = console) {
-  try {
-    const signature = await (0, import_web32.sendAndConfirmTransaction)(connection, transaction, signers, {
-      skipPreflight: true,
-      preflightCommitment: "confirmed"
-    });
-    return signature;
-  } catch (error) {
-    logger.error("Error sending transaction:", error);
-    return null;
-  }
-}
-__name(sendTransaction, "sendTransaction");
-
 // src/utils/helper.ts
-var import_web33 = require("@solana/web3.js");
+var import_web3 = require("@solana/web3.js");
 var import_bs58 = __toESM(require("bs58"));
-async function getKeyPairFromPrivateKey(key) {
-  return import_web33.Keypair.fromSecretKey(new Uint8Array(import_bs58.default.decode(key)));
-}
-__name(getKeyPairFromPrivateKey, "getKeyPairFromPrivateKey");
 function bufferFromUInt64(value) {
   let buffer = Buffer.alloc(8);
   buffer.writeBigUInt64LE(BigInt(value));
@@ -130,109 +90,62 @@ async function getTokenData(mintStr, logger = console) {
 __name(getTokenData, "getTokenData");
 
 // src/index.ts
-var import_dotenv = require("dotenv");
-(0, import_dotenv.config)();
-var GLOBAL = new import_web34.PublicKey("4wTV1YmiEkRvAtNtsSGPtUrqRYQMe5SKy2uB4Jjaxnjf");
-var FEE_RECIPIENT = new import_web34.PublicKey("CebN5WGQ4jvEPvsVU4EoHEpgzq1VV7AbicfhtW4xC9iM");
-var TOKEN_PROGRAM_ID = new import_web34.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
-var ASSOC_TOKEN_ACC_PROG = new import_web34.PublicKey("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL");
-var RENT = new import_web34.PublicKey("SysvarRent111111111111111111111111111111111");
-var PUMP_FUN_PROGRAM = new import_web34.PublicKey("6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P");
-var PUMP_FUN_ACCOUNT = new import_web34.PublicKey("Ce6TQqeHC9p8KetsN6JsjHK7UTZk7nasjjnr7XxXp9F1");
-var SYSTEM_PROGRAM_ID = import_web34.SystemProgram.programId;
+var import_config = require("dotenv/config");
+var GLOBAL = new import_web32.PublicKey("4wTV1YmiEkRvAtNtsSGPtUrqRYQMe5SKy2uB4Jjaxnjf");
+var FEE_RECIPIENT = new import_web32.PublicKey("CebN5WGQ4jvEPvsVU4EoHEpgzq1VV7AbicfhtW4xC9iM");
+var TOKEN_PROGRAM_ID = new import_web32.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+var ASSOC_TOKEN_ACC_PROG = new import_web32.PublicKey("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL");
+var RENT = new import_web32.PublicKey("SysvarRent111111111111111111111111111111111");
+var COMPUTEBUDGET = new import_web32.PublicKey("ComputeBudget111111111111111111111111111111");
+var PUMP_FUN_PROGRAM = new import_web32.PublicKey("6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P");
+var PUMP_FUN_ACCOUNT = new import_web32.PublicKey("Ce6TQqeHC9p8KetsN6JsjHK7UTZk7nasjjnr7XxXp9F1");
+var SYSTEM_PROGRAM_ID = import_web32.SystemProgram.programId;
 var PumpFunTrader = class {
   static {
     __name(this, "PumpFunTrader");
   }
   connection;
   logger;
-  constructor(solanaRpcUrl = "https://api.mainnet-beta.solana.com", logger = console) {
-    if (process.env.RPC_URL) {
-      this.connection = new import_web34.Connection(process.env.RPC_URL, "confirmed");
-    } else {
-      this.connection = new import_web34.Connection(solanaRpcUrl, "confirmed");
-    }
+  constructor(connection, logger = console) {
+    this.connection = connection;
     this.logger = logger;
-  }
-  setSolanaRpcUrl(solanaRpcUrl) {
-    this.connection = new import_web34.Connection(solanaRpcUrl, "confirmed");
-    return this;
   }
   setLogger(logger) {
     this.logger = logger;
     return this;
   }
-  async buy(privateKey, tokenAddress, amount, priorityFee = 0, slippage = 0.25, isSimulation = true) {
-    try {
-      const txBuilder = new import_web34.Transaction();
-      const instruction = await this.getBuyInstruction(privateKey, tokenAddress, amount, slippage, txBuilder);
-      if (!instruction?.instruction) {
-        this.logger.error("Failed to retrieve buy instruction...");
-        return;
-      }
-      txBuilder.add(instruction.instruction);
-      const signature = await this.createAndSendTransaction(txBuilder, privateKey, priorityFee, isSimulation);
-      this.logger.log("Buy transaction confirmed:", signature);
-      return signature;
-    } catch (error) {
-      this.logger.log(error);
-    }
-  }
-  async sell(privateKey, tokenAddress, tokenBalance, priorityFee = 0, slippage = 0.25, isSimulation = true) {
-    try {
-      const instruction = await this.getSellInstruction(privateKey, tokenAddress, tokenBalance, slippage);
-      const txBuilder = new import_web34.Transaction();
-      if (!instruction) {
-        this.logger.error("Failed to retrieve sell instruction...");
-        return;
-      }
-      txBuilder.add(instruction);
-      const signature = await this.createAndSendTransaction(txBuilder, privateKey, priorityFee, isSimulation);
-      this.logger.log("Sell transaction confirmed:", signature);
-    } catch (error) {
-      this.logger.log(error);
-    }
-  }
-  async createAndSendTransaction(txBuilder, privateKey, priorityFee = 0, isSimulation = true) {
-    const walletPrivateKey = await getKeyPairFromPrivateKey(privateKey);
-    const transaction = await createTransaction(this.connection, txBuilder.instructions, walletPrivateKey.publicKey, priorityFee);
-    if (isSimulation == false) {
-      const signature = await sendTransaction(this.connection, transaction, [
-        walletPrivateKey
-      ], this.logger);
-      this.logger.log("Transaction confirmed:", signature);
-      return signature;
-    } else if (isSimulation == true) {
-      const simulatedResult = await this.connection.simulateTransaction(transaction);
-      this.logger.log(simulatedResult);
-    }
-  }
-  async getBuyInstruction(privateKey, tokenAddress, amount, slippage = 0.25, txBuilder) {
+  async getBuyTransaction(publicKey, tokenAddress, amount, slippage = 0.1, priorityFee = 0) {
     const coinData = await getTokenData(tokenAddress, this.logger);
     if (!coinData) {
       this.logger.error("Failed to retrieve coin data...");
       return;
     }
-    const walletPrivateKey = await getKeyPairFromPrivateKey(privateKey);
-    const owner = walletPrivateKey.publicKey;
-    const token = new import_web34.PublicKey(tokenAddress);
+    const owner = new import_web32.PublicKey(publicKey);
+    const { blockhash } = await this.connection.getLatestBlockhash();
+    const txBuilder = new import_web32.Transaction({
+      feePayer: owner,
+      recentBlockhash: blockhash
+    });
+    const token = new import_web32.PublicKey(tokenAddress);
     const tokenAccountAddress = await (0, import_spl_token.getAssociatedTokenAddress)(token, owner, false);
     const tokenAccountInfo = await this.connection.getAccountInfo(tokenAccountAddress);
+    if (priorityFee > 0) {
+    }
     let tokenAccount;
     if (!tokenAccountInfo) {
-      txBuilder.add((0, import_spl_token.createAssociatedTokenAccountInstruction)(walletPrivateKey.publicKey, tokenAccountAddress, walletPrivateKey.publicKey, token));
+      txBuilder.add((0, import_spl_token.createAssociatedTokenAccountInstruction)(owner, tokenAccountAddress, owner, token));
       tokenAccount = tokenAccountAddress;
     } else {
       tokenAccount = tokenAccountAddress;
     }
-    const solInLamports = amount * import_web34.LAMPORTS_PER_SOL;
+    const solInLamports = amount * import_web32.LAMPORTS_PER_SOL;
     const tokenOut = Math.floor(solInLamports * coinData["virtual_token_reserves"] / coinData["virtual_sol_reserves"]);
     const amountWithSlippage = amount * (1 + slippage);
-    const maxSolCost = Math.floor(amountWithSlippage * import_web34.LAMPORTS_PER_SOL);
+    const maxSolCost = Math.floor(amountWithSlippage * import_web32.LAMPORTS_PER_SOL);
     const ASSOCIATED_USER = tokenAccount;
     const USER = owner;
-    const BONDING_CURVE = new import_web34.PublicKey(coinData["bonding_curve"]);
-    const ASSOCIATED_BONDING_CURVE = new import_web34.PublicKey(coinData["associated_bonding_curve"]);
+    const BONDING_CURVE = new import_web32.PublicKey(coinData["bonding_curve"]);
+    const ASSOCIATED_BONDING_CURVE = new import_web32.PublicKey(coinData["associated_bonding_curve"]);
     const keys = [
       {
         pubkey: GLOBAL,
@@ -300,31 +213,34 @@ var PumpFunTrader = class {
       bufferFromUInt64(tokenOut),
       bufferFromUInt64(maxSolCost)
     ]);
-    const instruction = new import_web34.TransactionInstruction({
+    const instruction = new import_web32.TransactionInstruction({
       keys,
       programId: PUMP_FUN_PROGRAM,
       data
     });
-    return {
-      instruction,
-      tokenAmount: tokenOut
-    };
+    txBuilder.add(instruction);
+    return txBuilder;
   }
-  async getSellInstruction(privateKey, tokenAddress, tokenBalance, slippage = 0.25) {
+  async getSellTransaction(publicKey, tokenAddress, tokenBalance, slippage = 0.25, priorityFee = 0) {
     const coinData = await getTokenData(tokenAddress);
     if (!coinData) {
       this.logger.error("Failed to retrieve coin data...");
       return;
     }
-    const payer = await getKeyPairFromPrivateKey(privateKey);
-    const owner = payer.publicKey;
-    const mint = new import_web34.PublicKey(tokenAddress);
-    const txBuilder = new import_web34.Transaction();
+    const { blockhash } = await this.connection.getLatestBlockhash();
+    const owner = new import_web32.PublicKey(publicKey);
+    const mint = new import_web32.PublicKey(tokenAddress);
+    const txBuilder = new import_web32.Transaction({
+      feePayer: owner,
+      recentBlockhash: blockhash
+    });
+    if (priorityFee > 0) {
+    }
     const tokenAccountAddress = await (0, import_spl_token.getAssociatedTokenAddress)(mint, owner, false);
     const tokenAccountInfo = await this.connection.getAccountInfo(tokenAccountAddress);
     let tokenAccount;
     if (!tokenAccountInfo) {
-      txBuilder.add((0, import_spl_token.createAssociatedTokenAccountInstruction)(payer.publicKey, tokenAccountAddress, payer.publicKey, mint));
+      txBuilder.add((0, import_spl_token.createAssociatedTokenAccountInstruction)(owner, tokenAccountAddress, owner, mint));
       tokenAccount = tokenAccountAddress;
     } else {
       tokenAccount = tokenAccountAddress;
@@ -347,12 +263,12 @@ var PumpFunTrader = class {
         isWritable: false
       },
       {
-        pubkey: new import_web34.PublicKey(coinData["bonding_curve"]),
+        pubkey: new import_web32.PublicKey(coinData["bonding_curve"]),
         isSigner: false,
         isWritable: true
       },
       {
-        pubkey: new import_web34.PublicKey(coinData["associated_bonding_curve"]),
+        pubkey: new import_web32.PublicKey(coinData["associated_bonding_curve"]),
         isSigner: false,
         isWritable: true
       },
@@ -397,17 +313,19 @@ var PumpFunTrader = class {
       bufferFromUInt64(tokenBalance),
       bufferFromUInt64(minSolOutput)
     ]);
-    const instruction = new import_web34.TransactionInstruction({
+    const instruction = new import_web32.TransactionInstruction({
       keys,
       programId: PUMP_FUN_PROGRAM,
       data
     });
-    return instruction;
+    txBuilder.add(instruction);
+    return txBuilder;
   }
 };
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
   ASSOC_TOKEN_ACC_PROG,
+  COMPUTEBUDGET,
   FEE_RECIPIENT,
   GLOBAL,
   PUMP_FUN_ACCOUNT,
