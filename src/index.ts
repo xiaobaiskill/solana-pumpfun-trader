@@ -1,8 +1,6 @@
-import { Connection, LAMPORTS_PER_SOL, PublicKey, SystemProgram, Transaction, TransactionInstruction, clusterApiUrl } from '@solana/web3.js';
+import { Connection, LAMPORTS_PER_SOL, PublicKey, SystemProgram, Transaction, TransactionInstruction } from '@solana/web3.js';
 import { createAssociatedTokenAccountInstruction, getAssociatedTokenAddress } from '@solana/spl-token';
-import { createTransaction } from './utils/create-transaction';
-import { sendTransaction } from './utils/send-transaction';
-import { bufferFromUInt64, bufferFromUInt32, getKeyPairFromPrivateKey } from './utils/helper';
+import { bufferFromUInt64, bufferFromUInt32 } from './utils/helper';
 import getCoinData from './utils/get-token-data';
 import getTokenData from './utils/get-token-data';
 export const GLOBAL = new PublicKey('4wTV1YmiEkRvAtNtsSGPtUrqRYQMe5SKy2uB4Jjaxnjf');
