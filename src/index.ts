@@ -30,6 +30,15 @@ export default class PumpFunTrader {
         return this;
     }
 
+    // name: name
+    // symbol: ticker
+    // uri: get url before post data to https://pump.fun/api/ipfs 
+    // example: https://solscan.io/tx/217i15JPriGAKR56dNqzjkdeki8DA6FE72JcXoyD5QDPd2beEDJVYgWUeab7aNn1zx2964N6rwUWKm83D5ZjR4Aq
+    // example: https://solscan.io/tx/5Pk5BZKbdfE6umR5ZeP7cgfnDBJMq2UEdFpUdwzFMjGCCc9n4z1qs5qxyZ3vT2vRvreNSYERd2qgjoVedqwdquFK
+    async createMeme(name: string, symbol: string, uri: string) {
+
+    }
+
     async getBuyTransaction(publicKey: string, tokenAddress: string, amount: number, slippage: number = 0.10, priorityFee: number = 0.003) {
         const coinData = await getTokenData(tokenAddress, this.logger);
         if (!coinData) {
