@@ -15,6 +15,7 @@ declare class PumpFunTrader {
     private logger;
     constructor(connection: Connection, logger?: any);
     setLogger(logger: any): this;
+    createMeme(name: string, symbol: string, uri: string): Promise<void>;
     getBuyTransaction(publicKey: string, tokenAddress: string, amount: number, slippage?: number, priorityFee?: number): Promise<Transaction | undefined>;
     getSellTransaction(publicKey: string, tokenAddress: string, tokenBalance: number, slippage?: number, priorityFee?: number): Promise<Transaction | undefined>;
     private setpriorityFee;

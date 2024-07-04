@@ -55,7 +55,6 @@ async function getTokenData(mintStr, logger = console) {
 __name(getTokenData, "getTokenData");
 
 // src/index.ts
-import "dotenv/config";
 var GLOBAL = new PublicKey("4wTV1YmiEkRvAtNtsSGPtUrqRYQMe5SKy2uB4Jjaxnjf");
 var FEE_RECIPIENT = new PublicKey("CebN5WGQ4jvEPvsVU4EoHEpgzq1VV7AbicfhtW4xC9iM");
 var TOKEN_PROGRAM_ID = new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
@@ -79,6 +78,13 @@ var PumpFunTrader = class {
   setLogger(logger) {
     this.logger = logger;
     return this;
+  }
+  // name: name
+  // symbol: ticker
+  // uri: get url before post data to https://pump.fun/api/ipfs 
+  // example: https://solscan.io/tx/217i15JPriGAKR56dNqzjkdeki8DA6FE72JcXoyD5QDPd2beEDJVYgWUeab7aNn1zx2964N6rwUWKm83D5ZjR4Aq
+  // example: https://solscan.io/tx/5Pk5BZKbdfE6umR5ZeP7cgfnDBJMq2UEdFpUdwzFMjGCCc9n4z1qs5qxyZ3vT2vRvreNSYERd2qgjoVedqwdquFK
+  async createMeme(name, symbol, uri) {
   }
   async getBuyTransaction(publicKey, tokenAddress, amount, slippage = 0.1, priorityFee = 3e-3) {
     const coinData = await getTokenData(tokenAddress, this.logger);

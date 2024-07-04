@@ -4,7 +4,6 @@ import { createTransaction } from './utils/create-transaction';
 import { sendTransaction } from './utils/send-transaction';
 import { bufferFromUInt64, bufferFromUInt32, getKeyPairFromPrivateKey } from './utils/helper';
 import getCoinData from './utils/get-token-data';
-import 'dotenv/config';
 import getTokenData from './utils/get-token-data';
 export const GLOBAL = new PublicKey('4wTV1YmiEkRvAtNtsSGPtUrqRYQMe5SKy2uB4Jjaxnjf');
 export const FEE_RECIPIENT = new PublicKey('CebN5WGQ4jvEPvsVU4EoHEpgzq1VV7AbicfhtW4xC9iM');
